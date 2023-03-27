@@ -1,0 +1,356 @@
+from selenium import webdriver #Webブラウザをプログラムから自動的に操作するために2つのライブラリ（PythonにSelenium、WebブラウザにWebdriver）をインストールした。
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+import time
+from selenium.webdriver.support.select import Select
+from selenium.webdriver.chrome.options import Options#「オプション引数」：必須ではない引数で、特に指定がなければデフォルト値が関数に渡されて結果が計算される
+from selenium.webdriver.chrome.service import Service #「selenium.webdriver.chrome.service」モジュールから、オブジェクト「Service]をインポートした。Serviceクラス：ブラウザをスクレイピングさせる本体のパスを設定 などに使うクラス。
+from bs4 import BeautifulSoup as bs #Beautiful Soup：HTMLやXMLファイルからデータを抽出するためのPythonライブラリ。
+from selenium.webdriver.support.select import Select #Beautiful SoupでHTMLの中から要素を取得する。「find系」は「要素名と属性」を指定、「select系」は「要素名とCSSセレクタ」を指定できる。
+import urllib.request as req #「urllib.request」モジュール：URLを開いて読むためのモジュール。ここでは「req」と略して導入している。
+from requests_html import HTMLSession #「requests_html」モジュール：Webスクレイピングを簡単に操作するモジュール。ページに含まれているすべてのリンクやコンテンツ全体のほか、HTML要素の属性を知ることができる。
+import requests #PythonからGASのWebアプリケーションにPOSTリクエストを送信するために、requestsモジュールを使用する。
+import json #Python内の辞書型オブジェクトを、GASに送信する際にはJSON形式に変換する
+
+
+
+
+options = Options() #関数Optionsを簡単に書き直した。
+option = webdriver.ChromeOptions() #webdriver（＝ChromeDriver）に対して、オプションを適用させている（ChromeDriverに様々な設定を付与できるようにした）。
+
+#開発終了後は以下を消去。開発中は、ブラウザ上での動きを見るために残しておく。
+option.add_experimental_option("detach", True) #add_experimental_option：試験的なオプションを設定する関数。detach:Selenium実行後もChromeを開いたままにできる（quit()やclose()を呼ばない限り）。Trueは、「detachオプションをTrueにする」という意味。
+
+
+CHROMEDRIVER = "/Users/afsc/Desktop/chromedriver_mac_arm64/chromedriver"
+
+# ドライバー指定でChromeブラウザを開く
+chrome_service = Service(executable_path=CHROMEDRIVER) #Serviceクラス：ブラウザをスクレイピングさせる本体のパスの設定などに使うクラス。
+driver = webdriver.Chrome(service=chrome_service,options=option) #Chromeメソッドの中で、chromedriverのパスの設定を行っている。Chrome内の「service」なる変数を、chrome_serviceに書き換えた。
+
+
+
+
+
+#afbに関してーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+
+
+
+#afbにログインする
+
+driver.get('https://www.afi-b.com/general/partner/requiredlogin') #afbのURLにアクセス
+
+time.sleep(2)#ページが切り替わるまで念の為待機
+
+#ログイン画面にIDとパスワードを入力
+login_names = driver.find_elements(By.NAME,'login_name')#パートナーID入力欄を指定するため、一旦配列で取得
+partner_id = login_names[2]#パートナーID入力欄を選択
+partner_id.send_keys('bunta1125' + Keys.RETURN) #パートナーIDを入力して「Enter」
+
+
+passwords = driver.find_elements(By.NAME,'password') #パスワード入力欄を指定するため、一旦配列で取得
+password = passwords[2] #パスワード入力欄を選択
+password.send_keys('bun19941125' + Keys.RETURN)#パスワードを入力して「Enter」（これでログイン完了）
+
+#「レポート」を選択
+time.sleep(2)
+driver.find_element(By.ID,'gmenu_report').click()
+#driver.get('https://www.afi-b.com/pa/report/?r=monthly#tab_btn_top') #href属性のリンクからアクセスした
+time.sleep(2) #遷移してからページが描写され終わるまで待機
+
+#「原稿別」をクリック
+driver.find_element(By.ID,'manuscript_tab_bth').click()
+
+
+#「対象プロモーション」（▼ボタン）を選択し、クリック
+time.sleep(2) #ページが切り替わるまで待機
+promotion_tabs = driver.find_elements(By.CLASS_NAME,'chzn-single')#「プロモーション」タブを選択するために、一旦配列で取得
+promotion_tab = promotion_tabs[12] #配列から、目的のプロモーションタブを取得
+promotion_tab.click()#プロモーションタブの▼ボタンを押して、タブを展開
+
+
+
+
+
+
+
+
+#【210】品川近視クリニック 来院 原稿 レーシック の値を取得
+
+#【210】品川近視クリニック 来院 を選択
+promotion_select = driver.find_element(By.ID,'adv_id_manuscript_chzn_o_2')
+promotion_select.click()
+#promotion_select = Select(promotion_tab) #select_by_valueメソッドを使用するために、Selectオブジェクトを生成した。
+#promotion_select.select_by_value("210")# select_by_valueメソッドを用いて品川近視クリニックを選択した。
+
+#「レポート期間」について、「昨日」のボタンを選択
+report_period = driver.find_element(By.XPATH, '/html/body/div[2]/div[2]/div/div/div/div/div/form[6]/div[1]/table[1]/tbody/tr[4]/td/p[2]/label[10]/input')#他に良い指定方法がなさそうだったので、XPATHで指定した。
+report_period.click()
+
+
+#「レポートを表示する」ボタンを選択してクリック
+send_reports = driver.find_elements(By.CLASS_NAME,'send_report')#一旦、配列で取得
+send_report = send_reports[5]#配列の中の6番目の要素を選択
+send_report.click()
+
+
+#数値を取得ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+time.sleep(1)#ページが切り替わるまで待機
+
+#JavaScriptの描画を反映させるために、ヘッドレスモードに切り替え＋レンダリングをする
+#ヘッドレスChromeに切り替え
+options.add_argument('--headless')
+
+#driver.execute_script('document.getElementById("example-id").innerHTML = "New HTML"')#execute_scriptメソッド：SeleniumからJavaScriptを操作できる。 getElementByIdメソッド（JavaScript)：任意のHTMLタグで指定したIDにマッチするドキュメント要素を取得するメソッド
+
+url = driver.current_url#現在のページのURLを取得
+Session = HTMLSession()
+r = Session.get(url)#URLも「辞書型」といえる。（'https://……'という「キー文字列」で値にアクセスしているので）
+r.html.render()#JavaScriptのスクリプトを実行している。
+#ここまでで、JavaScript作用後のHTMLが取得できたはず。
+
+time.sleep(2)#レンダリングが終わるまで待機
+#print(r.text)
+
+#レンダリング後のページのHTMLを取得する
+source_code = driver.page_source#現在のページのソース（HTML)を取得するメソッド
+#print(source_code)#Webサイトの見た目通りのHTMLが取得できた！
+
+#取得したHTMLから、要素を抽出する
+#BeautifulSoupを用いてタグ、属性から指定
+soup = bs(source_code,'html.parser')#BeautifulSoupオブジェクトを生成
+tables = soup.select('tbody')#一旦、<tbody>タグの要素のリストを作成
+table = tables[-1]#リスト：tablesの一番後ろの値を選択。これで、テーブルが指定できた。
+
+rows = table.find_all('tr') #テーブル内の「行」を取得した。
+for i,row in enumerate(rows):#enumerate()関数：主にforループなどでイテレータの要素と同時にインデックスを扱いたい場合に利用される。
+    if 'レーシック' in row.text:#文字列’レーシック’を含む行を取得
+       lasik_row = row
+
+data = lasik_row.find_all('td') #文字列”レーシック”を含む行の<td>タグをリストで取得した。
+sinagawa_lasik = data[10]#上で取得したリストの「11番目」を指定した。
+print(sinagawa_lasik.text)#「発生数」の値を取得した。
+#「レーシック」の発生数↑
+
+'''
+#「ICL」の発生数↓
+rows = table.find_all('tr') #テーブル内の「行」を取得した。
+for i,row in enumerate(rows):#enumerate()関数：主にforループなどでイテレータの要素と同時にインデックスを扱いたい場合に利用される。
+    if 'ICL' in row.text:#文字列’ICL’を含む行を取得
+       lasik_row = row
+
+data = lasik_row.find_all('td') #文字列”レーシック”を含む行の<td>タグをリストで取得した。
+sinagawa_lasik = data[10]#上で取得したリストの「11番目」を指定した。
+print(sinagawa_lasik.text)#「発生数」の値を取得した。
+
+'''
+
+
+
+
+
+#ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#新宿近視クリニック 無料検査来院予約 原稿 リレックススマイル の値を取得する。
+
+
+#「対象プロモーション」から、「新宿近視クリニック 無料検査来院予約」を選択する
+promotion_tabs = driver.find_elements(By.CLASS_NAME,'chzn-single')#「プロモーション」タブを選択するために、一旦配列で取得  #※既にpromotion_tabは上で定義しているのでこの2行は不要だと思ったが、これらがないとエラーになった。
+promotion_tab = promotion_tabs[12] #配列から、目的のプロモーションタブを取得
+promotion_tab.click()#プロモーションタグの▼ボタンを押して、タブを展開
+
+#【2094】新宿近視クリニック 来院 を選択
+promotion_select = driver.find_element(By.ID,'adv_id_manuscript_chzn_o_3')
+promotion_select.click()
+
+#「レポートを表示する」ボタンを選択してクリック
+send_reports = driver.find_elements(By.CLASS_NAME,'send_report')#一旦、配列で取得  #※こちらも、この2行がないとエラーになった。
+send_report = send_reports[5]#配列の中の6番目の要素を選択
+send_report.click()
+
+#数値を取得ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+time.sleep(1)#ページが切り替わるまで待機
+
+#JavaScriptの描画を反映させるために、ヘッドレスモードに切り替え＋レンダリングをする
+#ヘッドレスChromeに切り替え
+options.add_argument('--headless')
+
+url = driver.current_url#現在のページのURLを取得
+Session = HTMLSession()
+r = Session.get(url)#URLも「辞書型」といえる。（'https://……'という「キー文字列」で値にアクセスしているので）
+r.html.render()#JavaScriptのスクリプトを実行している。
+#ここまでで、JavaScript作用後のHTMLが取得できたはず。
+
+time.sleep(2)#レンダリングが終わるまで待機
+#print(r.text)
+
+#レンダリング後のページのHTMLを取得する
+source_code = driver.page_source#現在のページのソース（HTML)を取得するメソッド
+#print(source_code)#Webサイトの見た目通りのHTMLが取得できた！
+
+#取得したHTMLから、要素を抽出する
+
+#BeautifulSoupを用いてタグ、属性から指定
+soup = bs(source_code,'html.parser')#BeautifulSoupオブジェクトを生成
+tables = soup.select('tbody')#一旦、<tbody>タグの要素のリストを作成
+table = tables[-1]#リスト：tablesの一番後ろの値を選択。これで、テーブルが指定できた。
+
+rows = table.find_all('tr') #テーブル内の「行」を取得した。
+for i,row in enumerate(rows):#enumerate()関数：主にforループなどでイテレータの要素と同時にインデックスを扱いたい場合に利用される。
+    if 'リレックススマイル' in row.text:#文字列’リレックススマイル’を含む行を取得
+       smile_row = row
+
+data = smile_row.find_all('td') #文字列”リレックススマイル”を含む行の<td>タグをリストで取得した。
+shinjuku_smile = data[10]#上で取得したリストの「11番目」を指定した。
+print(shinjuku_smile.text)#「発生数」の値を取得した。
+
+
+
+
+
+
+
+#ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 の値を取得する。
+
+
+#「対象プロモーション」から、【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 を選択する
+promotion_tabs = driver.find_elements(By.CLASS_NAME,'chzn-single')#「プロモーション」タブを選択するために、一旦配列で取得  #※既にpromotion_tabは上で定義しているのでこの2行は不要だと思ったが、これらがないとエラーになった。
+promotion_tab = promotion_tabs[12] #配列から、目的のプロモーションタブを取得
+promotion_tab.click()#プロモーションタグの▼ボタンを押して、タブを展開
+
+#【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 を選択
+promotion_select = driver.find_element(By.ID,'adv_id_manuscript_chzn_o_91')
+promotion_select.click()
+
+#「レポートを表示する」ボタンを選択してクリック
+send_reports = driver.find_elements(By.CLASS_NAME,'send_report')#一旦、配列で取得  #※こちらも、この2行がないとエラーになった。
+send_report = send_reports[5]#配列の中の6番目の要素を選択
+send_report.click()
+
+#数値を取得ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+time.sleep(1)#ページが切り替わるまで待機
+
+#JavaScriptの描画を反映させるために、ヘッドレスモードに切り替え＋レンダリングをする
+#ヘッドレスChromeに切り替え
+options.add_argument('--headless')
+
+url = driver.current_url#現在のページのURLを取得
+Session = HTMLSession()
+r = Session.get(url)#URLも「辞書型」といえる。（'https://……'という「キー文字列」で値にアクセスしているので）
+r.html.render()#JavaScriptのスクリプトを実行している。
+#ここまでで、JavaScript作用後のHTMLが取得できたはず。
+
+time.sleep(2)#レンダリングが終わるまで待機
+#print(r.text)
+
+#レンダリング後のページのHTMLを取得する
+source_code = driver.page_source#現在のページのソース（HTML)を取得するメソッド
+#print(source_code)#Webサイトの見た目通りのHTMLが取得できた！
+
+#取得したHTMLから、要素を抽出する
+
+#BeautifulSoupを用いてタグ、属性から指定
+soup = bs(source_code,'html.parser')#BeautifulSoupオブジェクトを生成
+tables = soup.select('tbody')#一旦、<tbody>タグの要素のリストを作成
+table = tables[-1]#リスト：tablesの一番後ろの値を選択。これで、テーブルが指定できた。
+
+rows = table.find_all('tr') #テーブル内の「行」を取得した。
+for i,row in enumerate(rows):#enumerate()関数：主にforループなどでイテレータの要素と同時にインデックスを扱いたい場合に利用される。
+    if '先進会眼科' in row.text:#文字列’先進会眼科’を含む行を取得
+       senshinkai_row = row
+
+data = senshinkai_row.find_all('td') #文字列”先進会眼科”を含む行の<td>タグをリストで取得した。
+senshinkai_senshinkai = data[10]#上で取得したリストの「11番目」を指定した。
+print(senshinkai_senshinkai.text)#「発生数」の値を取得した。
+
+
+'''
+
+#レーシック#2に対応する案件↑
+
+
+
+
+
+#ICL_再作成#2に対応する案件↓
+
+
+
+#ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+#【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 の値を取得する。
+
+
+#「対象プロモーション」から、【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 を選択する
+promotion_tabs = driver.find_elements(By.CLASS_NAME,'chzn-single')#「プロモーション」タブを選択するために、一旦配列で取得  #※既にpromotion_tabは上で定義しているのでこの2行は不要だと思ったが、これらがないとエラーになった。
+promotion_tab = promotion_tabs[12] #配列から、目的のプロモーションタブを取得
+promotion_tab.click()#プロモーションタグの▼ボタンを押して、タブを展開
+
+#【12567】ICL(眼内コンタクトレンズ）・レーシック・白内障治療は【先進会眼科】 を選択
+promotion_select = driver.find_element(By.ID,'adv_id_manuscript_chzn_o_91')
+promotion_select.click()
+
+#「レポートを表示する」ボタンを選択してクリック
+send_reports = driver.find_elements(By.CLASS_NAME,'send_report')#一旦、配列で取得  #※こちらも、この2行がないとエラーになった。
+send_report = send_reports[5]#配列の中の6番目の要素を選択
+send_report.click()
+
+#数値を取得ーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーーー
+time.sleep(1)#ページが切り替わるまで待機
+
+#JavaScriptの描画を反映させるために、ヘッドレスモードに切り替え＋レンダリングをする
+#ヘッドレスChromeに切り替え
+options.add_argument('--headless')
+
+url = driver.current_url#現在のページのURLを取得
+Session = HTMLSession()
+r = Session.get(url)#URLも「辞書型」といえる。（'https://……'という「キー文字列」で値にアクセスしているので）
+r.html.render()#JavaScriptのスクリプトを実行している。
+#ここまでで、JavaScript作用後のHTMLが取得できたはず。
+
+time.sleep(2)#レンダリングが終わるまで待機
+#print(r.text)
+
+#レンダリング後のページのHTMLを取得する
+source_code = driver.page_source#現在のページのソース（HTML)を取得するメソッド
+#print(source_code)#Webサイトの見た目通りのHTMLが取得できた！
+
+#取得したHTMLから、要素を抽出する
+
+#BeautifulSoupを用いてタグ、属性から指定
+soup = bs(source_code,'html.parser')#BeautifulSoupオブジェクトを生成
+tables = soup.select('tbody')#一旦、<tbody>タグの要素のリストを作成
+table = tables[-1]#リスト：tablesの一番後ろの値を選択。これで、テーブルが指定できた。
+
+rows = table.find_all('tr') #テーブル内の「行」を取得した。
+for i,row in enumerate(rows):#enumerate()関数：主にforループなどでイテレータの要素と同時にインデックスを扱いたい場合に利用される。
+    if '先進会眼科' in row.text:#文字列’先進会眼科’を含む行を取得
+       senshinkai_row = row
+
+data = senshinkai_row.find_all('td') #文字列”先進会眼科”を含む行の<td>タグをリストで取得した。
+cv_senshinkkai = data[10]#上で取得したリストの「11番目」を指定した。
+print(cv_senshinkkai.text)#「発生数」の値を取得した。
+
+
+'''
+
+
+
+
+
+
+
+#================================================================================================================================
+#PythonとGASを連携していく↓
+
+#PythonからWebアプリケーションにHTTPリクエストを送信
+deploy_url = "https://script.google.com/macros/s/AKfycbzSIzfw918QPq1ABjqE4OnRgiQwMnI0br7wU7CxQo1rw16oJ46EZ8VE1-8ZCnEeylA0/exec"
+
+#スプレッドシートに入力する値を指定する
+postData = {
+    "sinagawa_lasik":"sinagawa_lasik",
+    "shinjuku_smile":"shinjuku_smile",
+    "senshinkai_senshinkai":"senshinkai_senshinkai",
+}
+
+response = requests.post(deploy_url,postData=json.dumps(postData))
+print(response.text)
